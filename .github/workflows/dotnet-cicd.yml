@@ -185,7 +185,9 @@ jobs:
             --path products \
             --specification-format OpenApi \
             --specification-path openapi.json \
-            --api-revision $REVISION_ID
+            --api-revision $REVISION_ID \
+            --preserve-revision true
+
 
       - name: Make APIM revision current
         run: |
