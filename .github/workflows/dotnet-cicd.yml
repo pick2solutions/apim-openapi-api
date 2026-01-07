@@ -155,12 +155,12 @@ jobs:
           echo " Application deployed successfully!"
           echo " URL: https://$FQDN"
           echo " Swagger UI: https://$FQDN/swagger"
-
+            
   update-apim-revision:
     name: Update APIM API Revision
     needs: deploy-to-container-app
     runs-on: ubuntu-latest
-
+  
     steps:
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -168,40 +168,38 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
+  
       - name: Download OpenAPI artifact
         uses: actions/download-artifact@v4
         with:
           name: openapi-spec
-
+  
       - name: Create APIM API revision
         run: |
           REVISION_ID="${GITHUB_SHA::7}"
-
+  
           az apim api revision create \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --service-name ${{ secrets.APIM_NAME }} \
             --api-id products-api \
             --api-revision $REVISION_ID
-
-      - name: Strip OpenAPI metadata (required for APIM revisions)
+  
+      - name: Strip OpenAPI description (safe)
         run: |
           jq 'del(.info.description)' openapi.json > openapi.cleaned.json
           mv openapi.cleaned.json openapi.json
-
-
+  
       - name: Import OpenAPI into APIM revision
         run: |
           REVISION_ID="${GITHUB_SHA::7}"
+  
           az apim api import \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --service-name ${{ secrets.APIM_NAME }} \
-            --api-id products-api \
-            --api-revision $REVISION_ID \
-            --path "" \
+            --api-id "products-api;rev=$REVISION_ID" \
             --specification-format OpenApi \
             --specification-path openapi.json
-
+  
       - name: Make APIM revision current
         run: |
           az apim api revision set \
@@ -210,3 +208,4 @@ jobs:
             --api-id products-api \
             --api-revision "${GITHUB_SHA::7}" \
             --set-current true
+  
