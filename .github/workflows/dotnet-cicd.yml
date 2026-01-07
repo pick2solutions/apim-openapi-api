@@ -40,7 +40,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Install Swashbuckle CLI
-        run: dotnet tool install --global Swashbuckle.AspNetCore.Cli --version 10.1.0
+        run: dotnet tool install --global Swashbuckle.AspNetCore.Cli --version 6.5.0
 
       - name: Restore dependencies
         working-directory: ${{ env.WORKING_DIR }}
