@@ -197,6 +197,7 @@ jobs:
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --service-name ${{ secrets.APIM_NAME }} \
             --api-id "products-api;rev=$REVISION_ID" \
+            --path products \
             --specification-format OpenApi \
             --specification-path openapi.json
   
