@@ -155,7 +155,6 @@ jobs:
           echo " Application deployed successfully!"
           echo " URL: https://$FQDN"
           echo " Swagger UI: https://$FQDN/swagger"
-
   update-apim-revision:
     name: Update APIM API Revision
     needs: deploy-to-container-app
@@ -184,16 +183,6 @@ jobs:
             --api-id products-api \
             --api-revision $REVISION_ID
   
-  
-      - name: Make revision current (required before import)
-        run: |
-          az apim api revision set \
-            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --service-name ${{ secrets.APIM_NAME }} \
-            --api-id products-api \
-            --api-revision "${GITHUB_SHA::7}" \
-            --set-current true
-  
       - name: Import OpenAPI into APIM revision
         run: |
           REVISION_ID="${GITHUB_SHA::7}"
@@ -205,4 +194,15 @@ jobs:
             --path products \
             --specification-format OpenApi \
             --specification-path openapi.json
-   
+  
+      - name: Create APIM release (make revision current)
+        run: |
+          REVISION_ID="${GITHUB_SHA::7}"
+  
+          az apim api release create \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --service-name ${{ secrets.APIM_NAME }} \
+            --api-id products-api \
+            --api-revision $REVISION_ID \
+            --notes "Release from GitHub Actions - commit ${GITHUB_SHA}"
+  
