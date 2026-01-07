@@ -186,8 +186,9 @@ jobs:
 
       - name: Strip OpenAPI metadata (required for APIM revisions)
         run: |
-          jq 'del(.info.title, .info.description)' openapi.json > openapi.cleaned.json
+          jq 'del(.info.description)' openapi.json > openapi.cleaned.json
           mv openapi.cleaned.json openapi.json
+
 
       - name: Import OpenAPI into APIM revision
         run: |
