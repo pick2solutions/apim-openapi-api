@@ -184,10 +184,14 @@ jobs:
             --api-id products-api \
             --api-revision $REVISION_ID
 
+      - name: Strip OpenAPI metadata (required for APIM revisions)
+        run: |
+          jq 'del(.info.title, .info.description)' openapi.json > openapi.cleaned.json
+          mv openapi.cleaned.json openapi.json
+
       - name: Import OpenAPI into APIM revision
         run: |
           REVISION_ID="${GITHUB_SHA::7}"
-
           az apim api import \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --service-name ${{ secrets.APIM_NAME }} \
