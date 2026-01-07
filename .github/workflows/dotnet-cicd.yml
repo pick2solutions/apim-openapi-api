@@ -38,6 +38,14 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Setup .NET 7 runtime (required for Swashbuckle CLI)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x'
+      
+      - name: Install Swashbuckle CLI
+        run: dotnet tool install --global Swashbuckle.AspNetCore.Cli --version 6.5.0
 
       - name: Restore dependencies
         working-directory: ${{ env.WORKING_DIR }}
@@ -46,6 +54,20 @@ jobs:
       - name: Build
         working-directory: ${{ env.WORKING_DIR }}
         run: dotnet build --no-restore --configuration Release
+
+      - name: Generate OpenAPI spec
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          swagger tofile \
+            --output openapi.json \
+            bin/Release/net10.0/ProductsApi.dll \
+            v1
+
+      - name: Upload OpenAPI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-spec
+          path: ${{ env.WORKING_DIR }}/openapi.json
 
       - name: Test
         working-directory: ${{ env.WORKING_DIR }}
@@ -130,6 +152,47 @@ jobs:
             --name ${{ steps.infra.outputs.container-app-name }} \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --query properties.configuration.ingress.fqdn -o tsv)
-          echo "🚀 Application deployed successfully!"
-          echo "📍 URL: https://$FQDN"
-          echo "📍 Swagger UI: https://$FQDN/swagger"
+          echo " Application deployed successfully!"
+          echo " URL: https://$FQDN"
+          echo " Swagger UI: https://$FQDN/swagger"
+
+  update-apim-revision:
+    name: Update APIM API Revision
+    needs: deploy-to-container-app
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Download OpenAPI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-spec
+
+      - name: Import OpenAPI into APIM as new revision
+        run: |
+          REVISION_ID="${GITHUB_SHA::7}"
+
+          az apim api import \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --service-name ${{ secrets.APIM_NAME }} \
+            --api-id products-api \
+            --path products \
+            --specification-format OpenApi \
+            --specification-path openapi.json \
+            --api-revision $REVISION_ID
+
+      - name: Make APIM revision current
+        run: |
+          az apim api revision set \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --service-name ${{ secrets.APIM_NAME }} \
+            --api-id products-api \
+            --api-revision "${GITHUB_SHA::7}" \
+            --set-current true
+
