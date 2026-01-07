@@ -9,6 +9,13 @@ resource "azurerm_resource_group" "main" {
   }
 }
 
+# Random suffix for globally unique names
+resource "random_string" "suffix" {
+  length  = 6
+  special = false
+  upper   = false
+}
+
 # Log Analytics Workspace (required for Container Apps)
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "${var.naming_prefix}-${var.environment}-law"
@@ -25,7 +32,7 @@ resource "azurerm_log_analytics_workspace" "main" {
 
 # Azure Container Registry
 resource "azurerm_container_registry" "main" {
-  name                = "${replace(var.naming_prefix, "-", "")}${var.environment}acr"
+  name                = "${replace(var.naming_prefix, "-", "")}${var.environment}${random_string.suffix.result}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   sku                 = "Basic"
@@ -119,7 +126,7 @@ resource "azurerm_container_app" "api" {
 
 # API Management Service
 resource "azurerm_api_management" "main" {
-  name                = "${var.naming_prefix}-${var.environment}-apim"
+  name                = "${var.naming_prefix}-${var.environment}-${random_string.suffix.result}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   publisher_name      = var.apim_publisher_name
