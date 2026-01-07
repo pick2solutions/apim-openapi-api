@@ -38,7 +38,12 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
-
+      
+      - name: Setup .NET 7 runtime (required for Swashbuckle CLI)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '7.0.x'
+      
       - name: Install Swashbuckle CLI
         run: dotnet tool install --global Swashbuckle.AspNetCore.Cli --version 6.5.0
 
