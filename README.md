@@ -2,6 +2,16 @@
 
 This project contains a .NET 10 Web API with OpenAPI/Swagger documentation and Terraform configuration for deploying to Azure Container Apps with API Management.
 
+## Why OpenAPI Documentation Matters
+
+**Well-documented APIs are foundational for modern development practices.** Comprehensive OpenAPI specifications with detailed descriptions, parameter definitions, and response schemas are not just "nice to have"—they're essential for:
+
+- **Developer Experience**: Clear documentation reduces integration time and support overhead
+- **API Management**: APIM relies on OpenAPI specs to understand and proxy your endpoints
+- **MCP Server Integration**: Azure API Management's upcoming Model Context Protocol (MCP) server capabilities require well-structured OpenAPI definitions. MCP servers expose APIs as tools that AI agents can discover and invoke—making proper documentation a **silent prerequisite** for AI-assisted workflows.
+
+This project demonstrates best practices for creating production-ready APIs with complete OpenAPI documentation using Swashbuckle and XML comments.
+
 ## Project Structure
 
 ```
