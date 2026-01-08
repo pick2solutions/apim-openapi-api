@@ -170,4 +170,143 @@ public class ProductsController : ControllerBase
 
         return NoContent();
     }
+
+    /// <summary>
+    /// Searches products by category
+    /// </summary>
+    /// <param name="category">The category to filter by</param>
+    /// <returns>A list of products in the specified category</returns>
+    /// <response code="200">Returns the list of products in the category</response>
+    [HttpGet("category/{category}")]
+    [ProducesResponseType(typeof(IEnumerable<Product>), StatusCodes.Status200OK)]
+    public ActionResult<IEnumerable<Product>> GetProductsByCategory(string category)
+    {
+        var products = _products.Where(p => 
+            p.Category != null && 
+            p.Category.Equals(category, StringComparison.OrdinalIgnoreCase)
+        ).ToList();
+
+        return Ok(products);
+    }
+
+    /// <summary>
+    /// Searches products by name or description
+    /// </summary>
+    /// <param name="searchTerm">The search term to match against product names and descriptions</param>
+    /// <returns>A list of matching products</returns>
+    /// <response code="200">Returns the list of matching products</response>
+    [HttpGet("search")]
+    [ProducesResponseType(typeof(IEnumerable<Product>), StatusCodes.Status200OK)]
+    public ActionResult<IEnumerable<Product>> SearchProducts([FromQuery] string searchTerm)
+    {
+        if (string.IsNullOrWhiteSpace(searchTerm))
+        {
+            return Ok(_products);
+        }
+
+        var products = _products.Where(p =>
+            p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            (p.Description != null && p.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+        ).ToList();
+
+        return Ok(products);
+    }
+
+    /// <summary>
+    /// Gets products within a price range
+    /// </summary>
+    /// <param name="minPrice">Minimum price (optional)</param>
+    /// <param name="maxPrice">Maximum price (optional)</param>
+    /// <returns>A list of products within the specified price range</returns>
+    /// <response code="200">Returns the list of products in the price range</response>
+    [HttpGet("price-range")]
+    [ProducesResponseType(typeof(IEnumerable<Product>), StatusCodes.Status200OK)]
+    public ActionResult<IEnumerable<Product>> GetProductsByPriceRange(
+        [FromQuery] decimal? minPrice, 
+        [FromQuery] decimal? maxPrice)
+    {
+        var query = _products.AsQueryable();
+
+        if (minPrice.HasValue)
+        {
+            query = query.Where(p => p.Price >= minPrice.Value);
+        }
+
+        if (maxPrice.HasValue)
+        {
+            query = query.Where(p => p.Price <= maxPrice.Value);
+        }
+
+        return Ok(query.ToList());
+    }
+
+    /// <summary>
+    /// Gets products that are low in stock
+    /// </summary>
+    /// <param name="threshold">Stock quantity threshold (default: 10)</param>
+    /// <returns>A list of products with stock below the threshold</returns>
+    /// <response code="200">Returns the list of low-stock products</response>
+    [HttpGet("low-stock")]
+    [ProducesResponseType(typeof(IEnumerable<Product>), StatusCodes.Status200OK)]
+    public ActionResult<IEnumerable<Product>> GetLowStockProducts([FromQuery] int threshold = 10)
+    {
+        var products = _products.Where(p => p.StockQuantity <= threshold).ToList();
+        return Ok(products);
+    }
+
+    /// <summary>
+    /// Updates the stock quantity for a product
+    /// </summary>
+    /// <param name="id">The unique identifier of the product</param>
+    /// <param name="quantity">The new stock quantity</param>
+    /// <returns>The updated product</returns>
+    /// <response code="200">Stock updated successfully</response>
+    /// <response code="400">Invalid quantity</response>
+    /// <response code="404">Product not found</response>
+    [HttpPatch("{id}/stock")]
+    [ProducesResponseType(typeof(Product), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<Product> UpdateProductStock(int id, [FromQuery] int quantity)
+    {
+        if (quantity < 0)
+        {
+            return BadRequest(new { message = "Quantity cannot be negative" });
+        }
+
+        var product = _products.FirstOrDefault(p => p.Id == id);
+        
+        if (product == null)
+        {
+            return NotFound(new { message = $"Product with ID {id} not found" });
+        }
+
+        product.StockQuantity = quantity;
+
+        return Ok(product);
+    }
+
+    /// <summary>
+    /// Gets product statistics
+    /// </summary>
+    /// <returns>Statistics about the product catalog</returns>
+    /// <response code="200">Returns product statistics</response>
+    [HttpGet("stats")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public ActionResult<object> GetProductStats()
+    {
+        var stats = new
+        {
+            TotalProducts = _products.Count,
+            TotalValue = _products.Sum(p => p.Price * p.StockQuantity),
+            AveragePrice = _products.Any() ? _products.Average(p => p.Price) : 0,
+            Categories = _products.Where(p => p.Category != null)
+                                  .GroupBy(p => p.Category)
+                                  .Select(g => new { Category = g.Key, Count = g.Count() })
+                                  .ToList(),
+            LowStockCount = _products.Count(p => p.StockQuantity <= 10)
+        };
+
+        return Ok(stats);
+    }
 }
