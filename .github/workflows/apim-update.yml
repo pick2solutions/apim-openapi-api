@@ -1,0 +1,57 @@
+name: Update APIM from Deployed API
+
+on:
+  workflow_run:
+    workflows: ["Build & Deploy Container App"]
+    types:
+      - completed
+
+env:
+  SWAGGER_PATH: swagger/v1/swagger.json
+  APIM_API_ID: products-api
+  APIM_API_PATH: products
+
+jobs:
+  update-apim:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.DEPLOY_CLIENT_ID }}
+          tenant-id: ${{ secrets.CI_TENANT_ID }}
+          subscription-id: ${{ secrets.CI_SUBSCRIPTION_ID }}
+          client-secret: ${{ secrets.DEPLOY_CLIENT_SECRET }}
+
+      - name: Resolve Container App URL
+        run: |
+          FQDN=$(az containerapp show \
+            --name ${{ secrets.CI_CONTAINER_APP }} \
+            --resource-group ${{ secrets.CI_RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn -o tsv)
+
+          echo "APP_URL=https://$FQDN" >> $GITHUB_ENV
+          echo "Resolved App URL: https://$FQDN"
+
+      - name: Wait for Swagger Endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS "$APP_URL/$SWAGGER_PATH" -o openapi.json; then
+              echo "Swagger is ready"
+              break
+            fi
+            echo "Waiting for API startup ($i)"
+            sleep 10
+          done
+
+      - name: Import OpenAPI into APIM
+        run: |
+          az apim api import \
+            --resource-group ${{ secrets.CI_RESOURCE_GROUP }} \
+            --service-name ${{ secrets.APIM_NAME }} \
+            --api-id $APIM_API_ID \
+            --path $APIM_API_PATH \
+            --specification-format OpenApi \
+            --specification-path openapi.json
