@@ -1,0 +1,44 @@
+stages:
+  - build
+  - deploy
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+variables:
+  IMAGE_NAME: "nimoy-api"
+
+before_script:
+  - export DEBIAN_FRONTEND=noninteractive
+  - apt-get update -qq
+  - apt-get install -y -qq curl
+  - curl -sL https://aka.ms/InstallAzureCLIDeb | bash > /dev/null
+
+# -----------------------
+# BUILD + PUSH IMAGE
+# -----------------------
+build-image:
+  stage: build
+  image: docker:28.0.4
+  services:
+    - docker:dind
+  script:
+    - docker login -u $CI_CLIENT_ID -p $CI_CLIENT_SECRET $CI_REGISTRY
+    - docker build -t ${CI_REGISTRY_IMAGE}:$CI_COMMIT_SHORT_SHA .
+    - docker push ${CI_REGISTRY_IMAGE}:$CI_COMMIT_SHORT_SHA
+
+# -----------------------
+# DEPLOY CONTAINER APP
+# -----------------------
+deploy-container-app:
+  stage: deploy
+  image: ubuntu:22.04
+  script:
+    - az login --service-principal -u $DEPLOY_CLIENT_ID -p $DEPLOY_CLIENT_SECRET --tenant $CI_TENANT_ID
+    - az account set --subscription $CI_SUBSCRIPTION_ID
+    - |
+      az containerapp update \
+        --name $CI_CONTAINER_APP \
+        --resource-group $CI_RESOURCE_GROUP \
+        --image ${CI_REGISTRY_IMAGE}:$CI_COMMIT_SHORT_SHA

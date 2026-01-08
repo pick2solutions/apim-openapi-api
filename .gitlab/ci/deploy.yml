@@ -1,0 +1,58 @@
+stages:
+  - apim
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+variables:
+  SWAGGER_PATH: "swagger/v1/swagger.json"
+  APIM_API_ID: "products-api"
+  APIM_API_PATH: "products"
+
+before_script:
+  - export DEBIAN_FRONTEND=noninteractive
+  - apt-get update -qq
+  - apt-get install -y -qq curl jq
+  - curl -sL https://aka.ms/InstallAzureCLIDeb | bash > /dev/null
+
+# -----------------------
+# UPDATE APIM
+# -----------------------
+update-apim:
+  stage: apim
+  image: ubuntu:22.04
+  script:
+    - az login --service-principal -u $DEPLOY_CLIENT_ID -p $DEPLOY_CLIENT_SECRET --tenant $CI_TENANT_ID
+    - az account set --subscription $CI_SUBSCRIPTION_ID
+
+    # Resolve Container App URL
+    - |
+      FQDN=$(az containerapp show \
+        --name $CI_CONTAINER_APP \
+        --resource-group $CI_RESOURCE_GROUP \
+        --query properties.configuration.ingress.fqdn -o tsv)
+
+      export APP_URL="https://$FQDN"
+      echo "App URL: $APP_URL"
+
+    # Wait for Swagger to be available
+    - |
+      for i in {1..30}; do
+        if curl -fsS "$APP_URL/$SWAGGER_PATH" -o openapi.json; then
+          echo "Swagger endpoint is ready"
+          break
+        fi
+        echo "Waiting for API to start... ($i)"
+        sleep 10
+      done
+
+    # Import OpenAPI into APIM
+    - |
+      az apim api import \
+        --resource-group $CI_RESOURCE_GROUP \
+        --service-name $APIM_NAME \
+        --api-id $APIM_API_ID \
+        --path $APIM_API_PATH \
+        --specification-format OpenApi \
+        --specification-path openapi.json
