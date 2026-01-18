@@ -76,7 +76,6 @@ jobs:
         run: exit 1
 
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform apply -auto-approve tfplan
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -85,7 +84,6 @@ jobs:
           ARM_USE_OIDC: true
 
       - name: Terraform Output
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: terraform output -json
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
