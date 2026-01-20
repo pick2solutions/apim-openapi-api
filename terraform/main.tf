@@ -131,7 +131,7 @@ resource "azurerm_api_management" "main" {
   resource_group_name = azurerm_resource_group.main.name
   publisher_name      = var.apim_publisher_name
   publisher_email     = var.apim_publisher_email
-  sku_name            = "Consumption_0"
+  sku_name            = "BasicV2_1"
 
   tags = {
     Environment = var.environment
